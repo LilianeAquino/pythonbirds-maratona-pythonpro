@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from itertools import chain
-from atores import ATIVO
+from atores import ATIVO, DuploLancamentoExcecao
 
 
 VITORIA = 'VITORIA'
@@ -36,6 +36,9 @@ class Fase():
         self._porcos = []
         self._obstaculos = []
 
+    def _adicionar_ator(self, lista, *atores):
+        lista.extend(atores)
+
 
     def adicionar_obstaculo(self, *obstaculos):
         """
@@ -43,7 +46,7 @@ class Fase():
 
         :param obstaculos:
         """
-        self._obstaculos.extend(obstaculos)
+        self._adicionar_ator(self._obstaculos, *obstaculos)
 
     def adicionar_porco(self, *porcos):
         """
@@ -51,7 +54,7 @@ class Fase():
 
         :param porcos:
         """
-        self._porcos.extend(porcos)
+        self._adicionar_ator(self._porcos, *porcos)
 
     def adicionar_passaro(self, *passaros):
         """
@@ -59,7 +62,20 @@ class Fase():
 
         :param passaros:
         """
-        self._passaros.extend(passaros)
+        self._adicionar_ator(self._passaros, *passaros)
+
+    # def acabou(self):
+    # """
+    #     Método que retorna verdadeiro se o jogo acabou e falso caso contrário
+    #
+    #     O jogo pode acabar por dois motivos:
+    #
+    #     1. Não existem mais porcos ativos no jogo
+    #     2. Não existem mais pássaros ativos no jogo
+    #
+    #     :return: booleano
+    #     """
+        #return self.status() != EM_ANDAMENTO
 
     def status(self):
         """
@@ -73,7 +89,11 @@ class Fase():
 
         :return:
         """
-        return EM_ANDAMENTO
+        if not self._existe_porco_ativo():
+            return VITORIA
+        if self._existe_passaro_ativo():
+            return EM_ANDAMENTO
+        return DERROTA
 
     def lancar(self, angulo, tempo):
         """
@@ -87,9 +107,12 @@ class Fase():
         :param tempo: Tempo de lançamento
         """
         for passaro in self._passaros:
-            if not passaro.foi_lancado():
+            try:
                 passaro.lancar(angulo, tempo)
-                break
+            except DuploLancamentoExcecao:
+                continue
+            else:
+                return
 
 
     def calcular_pontos(self, tempo):
@@ -101,16 +124,33 @@ class Fase():
         :param tempo: tempo para o qual devem ser calculados os pontos
         :return: objeto do tipo Ponto
         """
-        for passaro in self._passaros:
-            passaro.calcular_posicao(tempo)
-
-            for obstaculo_ou_porco in self._obstaculos + self._porcos:
-                passaro.colidir(obstaculo_ou_porco, self.intervalo_de_colisao)
-
-        pontos=[self._transformar_em_ponto(a) for a in self._passaros+self._obstaculos+self._porcos]
-
+        pontos = [self._calcular_ponto_de_passaro(p, tempo) for p in self._passaros]
+        obstaculos_e_porcos = chain(self._obstaculos, self._porcos)
+        pontos.extend([self._transformar_em_ponto(ator) for ator in obstaculos_e_porcos])
         return pontos
 
     def _transformar_em_ponto(self, ator):
         return Ponto(ator.x, ator.y, ator.caracter())
+
+    def _calcular_ponto_de_passaro(self, passaro, tempo):
+        passaro.calcular_posicao(tempo)
+        for ator in chain(self._obstaculos, self._porcos):
+            if ATIVO == passaro.status:
+                passaro.colidir(ator, self.intervalo_de_colisao)
+                passaro.colidir_com_chao()
+            else:
+                break
+        return self._transformar_em_ponto(passaro)
+
+    def _existe_porco_ativo(self):
+        return self._verificar_se_existe_ator_ativo(self._porcos)
+    
+    def _verificar_se_existe_ator_ativo(self, atores):
+        for a in atores:
+            if a.status == ATIVO:
+                return True
+        return False
+    
+    def _existe_passaro_ativo(self):
+        return self._verificar_se_existe_ator_ativo(self._passaros)
 
