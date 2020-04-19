@@ -66,6 +66,7 @@ class Obstaculo(Ator):
 
 class Porco(Ator):
     _caracter_ativo = '@'
+    _caracter_destruido = '+'
 
 
 class DuploLancamentoExcecao(Exception):
@@ -150,13 +151,19 @@ class Passaro(Ator):
         :return:
         """
         if self.foi_lancado():
-            self._angulo_de_lancamento = math.radians(angulo)
-            self._tempo_de_lancamento = tempo_de_lancamento
+            raise DuploLancamentoExcecao('Pássaro já foi lançado')
+        
+        self._tempo_de_lancamento = tempo_de_lancamento
+        self._angulo_de_lancamento = math.radians(angulo)
+        
 
 
 class PassaroAmarelo(Passaro):
-    pass
+    velocidade_escalar= 30
+    _caracter_destruido = 'a'
 
 
 class PassaroVermelho(Passaro):
     _caracter_ativo = 'V'
+    _caracter_destruido = 'v'
+    velocidade_escalar= 20
